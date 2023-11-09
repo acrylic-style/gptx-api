@@ -13,6 +13,18 @@ const models = {
   'gpt-4-vision-preview': 'GPT-4V (128k context)',
 }
 
+const imageModels = {
+  'dall-e-3': {
+    name: 'DALL·E 3',
+    resolutions: ['1024x1024', '1024x1792', '1792x1024'],
+  },
+  'dall-e-2': {
+    name: 'DALL·E 2',
+    resolutions: ['256x256', '512x512', '1024x1024'],
+  },
+}
+
+// Texts (Chat & Assistants)
 router.get('/api/models', (request, env) => {
   return new Response(JSON.stringify(models), {
     headers: {
@@ -279,6 +291,32 @@ router.get('/api/files/:id/content', async (request, env) => {
     // @ts-ignore
     Object.keys(headers).forEach(key => clone.headers.set(key, headers[key]))
     return clone
+  })
+})
+
+// Images
+router.get('/api/image_models', (request, env) => {
+  return new Response(JSON.stringify(imageModels), {
+    headers: {
+      'Content-Type': 'application/json',
+      ...getCorsHeaders(request, env)
+    }
+  })
+})
+
+router.post('/api/generate_image', async (request, env) => {
+  const body = await request.json()
+  if (!body.prompt) return new Response(null, { status: 400 })
+  const client = new OpenAI({ apiKey: env.OPENAI_TOKEN })
+  return new Response(JSON.stringify(await client.images.generate({
+    ...body,
+    response_format: 'b64_json',
+    user: request.headers.get('CF-Connecting-IP') || undefined,
+  })), {
+    headers: {
+      'Content-Type': 'application/json',
+      ...getCorsHeaders(request, env),
+    }
   })
 })
 
