@@ -21,7 +21,7 @@ export const defaultModelLimits: { [model in keyof typeof models]: { minute: num
   },
   'gpt-4-1106-preview': {
     minute: 4000,
-    day: 25000,
+    day: 50000,
   },
   'gpt-4-vision-preview': {
     minute: 2500,
