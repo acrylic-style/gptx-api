@@ -756,7 +756,7 @@ router.get('/api/checkout', async (request, env: Env) => {
     billing_address_collection: 'auto',
     line_items: filteredPrices.map(e => ({ price: e.id })),
     mode: 'subscription',
-    success_url: scheme + request.headers.get('Host') + '/api/checkout/success?session_id={CHECKOUT_SESSION_ID}',
+    success_url: scheme + request.headers.get('Host') + '/api/checkout/success/cross_origin_redirect?session_id={CHECKOUT_SESSION_ID}',
     cancel_url: scheme + request.headers.get('Host'),
   })
   return Response.redirect(session.url!, 303)
@@ -767,6 +767,7 @@ router.get('/api/checkout/success', async (request, env: Env) => {
   if (!userId) return new Response(null, { status: 401 })
   const userData = await getUserData(request, env)
   if (!userData) return new Response(null, { status: 401 })
+  if (userData.stripe_customer_id) return new Response(null, { status: 400 })
   const stripeSessionId = request.query.session_id as string
   if (!stripeSessionId) return new Response(null, { status: 400 })
   const stripe = getStripe(env)
@@ -778,6 +779,19 @@ router.get('/api/checkout/success', async (request, env: Env) => {
   }
   await env.KV_USERS.put(userId, JSON.stringify(userData))
   return Response.redirect(stripeSession.cancel_url!, 303)
+})
+
+router.get('/api/checkout/success/cross_origin_redirect', async (request, env: Env) => {
+  const stripeSessionId = request.query.session_id as string
+  if (!stripeSessionId) return new Response(null, { status: 400 })
+  const isLocal = request.headers.get('Host').includes('localhost')
+  const redirectTo = (isLocal ? 'http://localhost:3000' : '') + `/api/checkout/success?session_id=${stripeSessionId}`
+  return new Response('<html lang="en"><head><meta http-equiv="refresh" content="0;URL=\'' + redirectTo + '\'"><title>Redirecting...</title></head></html>', {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html',
+    },
+  })
 })
 
 router.get('/api/checkout/portal', async (request, env: Env) => {
