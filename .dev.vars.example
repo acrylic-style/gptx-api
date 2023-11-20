@@ -1,0 +1,17 @@
+ALLOWED_HOSTS="http://localhost:3000"
+OPENAI_TOKEN=
+ASSISTANT_ID=
+CUSTOM_SEARCH_KEY=
+CUSTOM_SEARCH_ID=
+STRIPE_KEY="sk_test_xxx"
+GITHUB_CLIENT_ID=xxx
+GITHUB_CLIENT_SECRET=xxx
+DISCORD_CLIENT_ID=123
+DISCORD_CLIENT_SECRET=xxx
+TOS_URL="https://example.com"
+PRIVACY_POLICY_URL="https://example.com"
+# japan act of specified commercial transactions
+SCT_URL="https://example.com"
+PRICING_URL="https://example.com"
+BIGQUERY_URL="https://bigquery.googleapis.com/bigquery/v2/projects/<project name>/datasets/<dataset name>/"
+BIGQUERY_SERVICE_ACCOUNT='{json here}'

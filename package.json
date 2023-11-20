@@ -9,11 +9,16 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20230419.0",
+    "@types/cookie": "^0.5.4",
     "itty-router": "^3.0.12",
     "typescript": "^5.0.4",
     "wrangler": "^3.0.0"
   },
   "dependencies": {
-    "openai": "^4.17.0"
+    "@sagi.io/workers-jwt": "^0.0.23",
+    "cookie": "^0.6.0",
+    "octokit": "^3.1.1",
+    "openai": "^4.17.0",
+    "stripe": "^14.4.0"
   }
 }

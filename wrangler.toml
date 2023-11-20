@@ -1,18 +1,40 @@
 name = "gptx-api"
 main = "src/index.ts"
 compatibility_date = "2023-10-30"
+routes = ["gptx.acrylicstyle.xyz/api/*"]
+
+[triggers]
+crons = ["* * * * *", "*/5 * * * *", "*/30 * * * *", "0 0 * * *"]
 
 # Variable bindings. These are arbitrary, plaintext strings (similar to environment variables)
 # Note: Use secrets to store sensitive data.
 # Docs: https://developers.cloudflare.com/workers/platform/environment-variables
-# [vars]
-# MY_VARIABLE = "production_value"
+[vars]
+#DISCORD_REDIRECT_URL = "http://localhost:8787/api/callback/discord"
+DISCORD_REDIRECT_URL = "https://gptx.acrylicstyle.xyz/api/callback/discord"
+REQUIRE_INVITE = "true"
 
 # Bind a KV Namespace. Use KV as persistent storage for small key-value pairs.
 # Docs: https://developers.cloudflare.com/workers/runtime-apis/kv
-# [[kv_namespaces]]
-# binding = "MY_KV_NAMESPACE"
-# id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+[[kv_namespaces]]
+binding = "KV_GITHUB"
+id = "c42eb6f0808544a29a8e185ebf729c71"
+
+[[kv_namespaces]]
+binding = "KV_DISCORD"
+id = "1deb0fb8a4f7420c8d6630279c31f920"
+
+[[kv_namespaces]]
+binding = "KV_USERS"
+id = "3554c69de2e24b2caae2baa53c064a47"
+
+[[kv_namespaces]]
+binding = "KV_SESSIONS"
+id = "982d9ebd59cc4629ac5d1d4a763fa75c"
+
+[[kv_namespaces]]
+binding = "KV_INVITE_CODES"
+id = "f69eeb149fa742a6947e9b0d985c2e25"
 
 # Bind an R2 Bucket. Use R2 to store arbitrarily large blobs of data, such as files.
 # Docs: https://developers.cloudflare.com/r2/api/workers/workers-api-usage/
