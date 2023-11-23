@@ -3,11 +3,14 @@ import OpenAI, { toFile } from 'openai';
 import {
   calculateLength,
   getCorsHeaders,
-  getDefaultUserData,
+  getDefaultUserData, getDiscordMessageChain,
   getStripe,
   getUserDataById,
-  insertBQRecordUsage, insertBQRecordUsageAll,
-  mergeDeep, redirectCors, UsageTable
+  insertBQRecordUsage,
+  insertBQRecordUsageAll,
+  mergeDeep,
+  redirectCors,
+  UsageTable
 } from './util';
 import Stripe from 'stripe';
 import { OAuthApp, Octokit } from 'octokit';
@@ -15,6 +18,8 @@ import { Env, KeyFilter } from './index';
 import { parse as parseCookie } from 'cookie';
 import { imageModels, InviteCode, models } from './constants';
 import { KVNamespace } from '@cloudflare/workers-types';
+import { verifyKey } from 'discord-interactions';
+import ChatCompletionMessageParam = OpenAI.ChatCompletionMessageParam;
 
 const router = Router()
 const encoder = new TextEncoder()
@@ -65,6 +70,10 @@ export const getUserData = async (request: any, env: Env) => {
 
 export const getRemainingModelUsage = async (request: any, env: Env, model: keyof typeof models): Promise<number | null> => {
   const userData = await getUserData(request, env)
+  return getRemainingModelUsageByData(userData, model)
+}
+
+export const getRemainingModelUsageByData = async (userData: ReturnType<typeof getDefaultUserData> | null, model: keyof typeof models): Promise<number | null> => {
   if (!userData || !userData.active || !userData.stripe_customer_id) return 0
   const limit = userData.limits[model]
   if (!limit) return 0
@@ -563,6 +572,19 @@ router.post('/api/generate_image', async (request, env) => {
 })
 
 // Users
+router.post('/api/update_default_instruction', async (request, env) => {
+  const userId = await getUserId(request, env)
+  if (!userId) return new Response(null, { status: 401, headers: getCorsHeaders(request, env) })
+  const userData = await getUserDataById(env, userId)
+  if (!userData) return new Response(null, { status: 401, headers: getCorsHeaders(request, env) })
+  const instruction = await request.text()
+  if (userData.default_instruction !== instruction) {
+    userData.default_instruction = instruction
+    await env.KV_USERS.put(userId, JSON.stringify(userData))
+  }
+  return new Response(null, { status: 200 })
+})
+
 router.get('/api/login/:provider', async (request, env: Env) => {
   if (request.params.provider === 'github') {
     return Response.redirect(`https://github.com/login/oauth/authorize?scope=user&client_id=${env.GITHUB_CLIENT_ID}`, 303)
@@ -574,6 +596,7 @@ router.get('/api/login/:provider', async (request, env: Env) => {
 })
 
 router.get('/api/callback/:provider', async (request, env: Env) => {
+  const loggedUserId = await getUserId(request, env)
   const isLocal = request.headers.get('Host').includes('localhost')
   const redirectTo = isLocal ? 'http://localhost:3000/' : `https://${request.headers.get('Host')}/`
   const sessionId = crypto.randomUUID()
@@ -589,13 +612,16 @@ router.get('/api/callback/:provider', async (request, env: Env) => {
     if (existingUserId) {
       userId = existingUserId
     } else {
-      userId = crypto.randomUUID()
+      userId = loggedUserId || crypto.randomUUID()
       await env.KV_GITHUB.put(github.id.toString(), userId)
-      const userData = getDefaultUserData()
-      if (!env.REQUIRE_INVITE) {
-        userData.active = true
+      if (userId !== loggedUserId) {
+        // newly created user
+        const userData = getDefaultUserData()
+        if (!env.REQUIRE_INVITE) {
+          userData.active = true
+        }
+        await env.KV_USERS.put(userId, JSON.stringify(userData))
       }
-      await env.KV_USERS.put(userId, JSON.stringify(userData))
     }
     await env.KV_SESSIONS.put(sessionId, userId, { expirationTtl: 2592000 })
     return new Response('<html lang="en"><head><meta http-equiv="refresh" content="0;URL=\'' + redirectTo + '\'"><title>Redirecting...</title></head></html>', {
@@ -627,20 +653,23 @@ router.get('/api/callback/:provider', async (request, env: Env) => {
     if (existingUserId) {
       userId = existingUserId
     } else {
-      userId = crypto.randomUUID()
+      userId = loggedUserId || crypto.randomUUID()
       await env.KV_DISCORD.put(user.id.toString(), userId)
-      const userData = getDefaultUserData()
-      if (!env.REQUIRE_INVITE) {
-        userData.active = true
+      if (userId !== loggedUserId) {
+        // newly created user
+        const userData = getDefaultUserData()
+        if (!env.REQUIRE_INVITE) {
+          userData.active = true
+        }
+        await env.KV_USERS.put(userId, JSON.stringify(userData))
       }
-      await env.KV_USERS.put(userId, JSON.stringify(userData))
     }
     await env.KV_SESSIONS.put(sessionId, userId, { expirationTtl: 2592000 })
     return new Response('<html lang="en"><head><meta http-equiv="refresh" content="0;URL=\'' + redirectTo + '\'"><title>Redirecting...</title></head></html>', {
       status: 200,
       headers: {
         'Content-Type': 'text/html',
-        'Set-Cookie': `${COOKIE_NAME}=${sessionId}; Max-Age=2592000; Secure; SameSite=${isLocal ? 'None' : 'Strict'}; HttpOnly; Path=/`,
+        'Set-Cookie': `${COOKIE_NAME}=${sessionId}; Max-Age=2592000; Secure; SameSite=${isLocal ? 'None' : 'Lax'}; HttpOnly; Path=/`,
       },
     })
   } else {
@@ -781,7 +810,7 @@ router.get('/api/checkout/success', async (request, env: Env) => {
   return Response.redirect(stripeSession.cancel_url!, 303)
 })
 
-router.get('/api/checkout/success/cross_origin_redirect', async (request, env: Env) => {
+router.get('/api/checkout/success/cross_origin_redirect', async (request) => {
   const stripeSessionId = request.query.session_id as string
   if (!stripeSessionId) return new Response(null, { status: 400 })
   const isLocal = request.headers.get('Host').includes('localhost')
@@ -812,6 +841,162 @@ router.get('/api/terms', (request, env: Env) => redirectCors(request, env, env.T
 router.get('/api/privacy-policy', (request, env: Env) => redirectCors(request, env, env.PRIVACY_POLICY_URL, 303))
 router.get('/api/sct', (request, env: Env) => redirectCors(request, env, env.SCT_URL, 303))
 router.get('/api/pricing', (request, env: Env) => redirectCors(request, env, env.PRICING_URL, 303))
+
+// discord
+router.post('/api/discord_interaction', async (request, env: Env, ctx: ExecutionContext) => {
+  if (env.DISCORD_REGISTER_COMMANDS) {
+    const nukeCommands = async () => {
+      const commands = (await fetch(`https://discord.com/api/v10/applications/${env.DISCORD_CLIENT_ID}/commands`, {
+        headers: {Authorization: 'Bot ' + env.DISCORD_BOT_TOKEN},
+      }).then(res => res.json())) as any[]
+      if (!commands.length) {
+        console.warn('Nothing to remove, or an error has occurred:', commands)
+        return
+      }
+      for (const command of commands) {
+        await fetch(`https://discord.com/api/v10/applications/${env.DISCORD_CLIENT_ID}/commands/${command.id}`, {
+          method: 'DELETE',
+          headers: {Authorization: 'Bot ' + env.DISCORD_BOT_TOKEN},
+        })
+      }
+    }
+    await nukeCommands()
+    const registerCommand = async (body: any) => await fetch(`https://discord.com/api/v10/applications/${env.DISCORD_CLIENT_ID}/commands`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: {
+        'Authorization': 'Bot ' + env.DISCORD_BOT_TOKEN,
+        'Content-Type': 'application/json',
+      },
+    }).then(res => res.json())
+    await registerCommand({
+      name: 'ask',
+      description: 'GPT-4 Turboで文章を生成する',
+      options: [
+        {
+          type: 3,
+          name: 'text',
+          description: 'モデルに渡す文字列',
+          required: true,
+        }
+      ],
+      type: 1,
+    }).then(console.log)
+    await registerCommand({
+      name: 'Ask GPT-4 Turbo',
+      type: 3,
+    }).then(console.log)
+  }
+  const body = await request.text()
+  if (!verifyKey(body, request.headers.get('X-Signature-Ed25519'), request.headers.get('X-Signature-Timestamp'), env.DISCORD_PUBLIC_KEY)) {
+    return new Response(null, { status: 401 })
+  }
+  const json = JSON.parse(body)
+  if (json.type === 1) {
+    // PING
+    return Response.json({ type: 1 })
+  } else if (json.type === 2) {
+    // APPLICATION_COMMAND
+    const model = 'gpt-4-vision-preview'
+    const discordUserId = (json.member?.user || json.user).id
+    const userId = await env.KV_DISCORD.get(discordUserId)
+    const userData = userId ? await getUserDataById(env, userId) : null
+    if (!userId || !userData) {
+      return Response.json({
+        type: 4,
+        data: {
+          content: 'Discordアカウントが連携されていません。',
+        },
+      })
+    }
+    if (!userData.active || !userData.stripe_customer_id) {
+      return Response.json({
+        type: 4,
+        data: {
+          content: 'アカウントが有効になってないか、請求先アカウントが設定されていません。',
+        },
+      })
+    }
+    const instruction = userData.default_instruction || null
+    const messages: Array<ChatCompletionMessageParam> =
+      json.data.type === 3
+        ? await getDiscordMessageChain(env.DISCORD_CLIENT_ID, env.DISCORD_BOT_TOKEN, instruction, json.data.resolved.messages[json.data.target_id])
+        : [{role: 'system', content: instruction}, {role: 'user', content: json.data.options[0].value}]
+    const length = calculateLength(messages)
+    if (!(await checkModelUsage(userId, userData, env, model, 0))) {
+      return Response.json({
+        type: 4,
+        data: {
+          content: `\`${model}\`の使用量が上限に達しているため、使用できません。`
+        }
+      })
+    }
+    const remainingUsage = await getRemainingModelUsageByData(userData, model)
+    if (remainingUsage !== null && remainingUsage <= 0) {
+      return Response.json({
+        type: 4,
+        data: {
+          content: `\`${model}\`の使用量が上限に達しているため、使用できません。`
+        }
+      })
+    }
+    const max_tokens = remainingUsage === null || remainingUsage > 2000 ? 2000 : remainingUsage
+    const client = new OpenAI({ apiKey: env.OPENAI_TOKEN })
+    if ((await client.moderations.create({input: JSON.stringify(messages[messages.length - 1])})).results.some(e => e.flagged)) {
+      return Response.json({
+        type: 4,
+        data: {
+          content: `不適切な文字列と判断されたため、生成できません。`
+        }
+      })
+    }
+    ctx.waitUntil((async () => {
+      const stream = await client.chat.completions.create({
+        model,
+        messages,
+        stream: true,
+        max_tokens,
+        user: userId,
+      })
+      let count = 0
+      let currentContent = ''
+      let lastUpdate = 0
+      const updateNow = () => {
+        lastUpdate = Date.now()
+        return fetch(`https://discord.com/api/v10/webhooks/${env.DISCORD_CLIENT_ID}/${json.token}/messages/@original`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            content: currentContent,
+          }),
+          headers: {
+            'Authorization': 'Bot ' + env.DISCORD_BOT_TOKEN,
+            'Content-Type': 'application/json',
+          },
+        })
+      }
+      await insertBQRecordUsage(env, userId, userData.stripe_customer_id, 'generate_chat_by_user', model, length)
+      await incrementUsage(env, model, userId, userData, length)
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content
+        if (content) {
+          count += content.length
+          currentContent += content
+          if (Date.now() - lastUpdate > 1000) {
+            await updateNow()
+          }
+        }
+      }
+      await insertBQRecordUsage(env, userId, userData.stripe_customer_id, 'generated_chat_by_assistant', model, count)
+      await incrementUsage(env, model, userId, userData, count)
+      await updateNow()
+    })().then(() => 'dummy').catch(e => console.error(e.stack || e)))
+    return Response.json({
+      type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+    })
+  } else {
+    return new Response(null, { status: 400 })
+  }
+})
 
 // 404 for everything else
 router.all('*', () => new Response('Not Found.', { status: 404 }));

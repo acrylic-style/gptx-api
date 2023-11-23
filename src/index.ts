@@ -30,6 +30,9 @@ export interface Env {
   DISCORD_CLIENT_ID: string;
   DISCORD_CLIENT_SECRET: string;
   DISCORD_REDIRECT_URL: string;
+  DISCORD_PUBLIC_KEY: string;
+  DISCORD_BOT_TOKEN: string;
+  DISCORD_REGISTER_COMMANDS: string | boolean;
   REQUIRE_INVITE: string | boolean;
   TOS_URL: string;
   PRIVACY_POLICY_URL: string;
@@ -55,7 +58,7 @@ export default {
     const url = new URL(request.url)
 
     if (url.pathname.startsWith('/api/')) {
-      return apiRouter.handle(request, env)
+      return apiRouter.handle(request, env, ctx)
     }
 
     return new Response(null, { status: 404 })

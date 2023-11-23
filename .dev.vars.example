@@ -8,6 +8,8 @@ GITHUB_CLIENT_ID=xxx
 GITHUB_CLIENT_SECRET=xxx
 DISCORD_CLIENT_ID=123
 DISCORD_CLIENT_SECRET=xxx
+DISCORD_PUBLIC_KEY=
+DISCORD_BOT_TOKEN=
 TOS_URL="https://example.com"
 PRIVACY_POLICY_URL="https://example.com"
 # japan act of specified commercial transactions

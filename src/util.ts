@@ -3,6 +3,9 @@ import { Env } from './index';
 import Stripe from 'stripe';
 import { defaultImageModelLimits, defaultModelLimits, imageModels, models } from './constants';
 import { getTokenFromGCPServiceAccount } from '@sagi.io/workers-jwt';
+import OpenAI from 'openai';
+import ChatCompletionMessageParam = OpenAI.ChatCompletionMessageParam;
+import { ChatCompletionContentPart } from 'openai/src/resources/chat/completions';
 
 const DEFAULT_ALLOWED_ORIGIN = 'http://localhost:3000'
 
@@ -81,6 +84,7 @@ export const getDefaultUserData = () => ({
   image_used: associateObjectKeyWith(imageModels, () => ({ minute: 0, day: 0 })),
   usage_text_since_last_record: {...associateObjectKeyWith(models, () => 0), file: 0 },
   usage_image_since_last_record: associateObjectKeyWith(imageModels, () => 0),
+  default_instruction: '',
   created_at: Date.now(),
 })
 
@@ -186,3 +190,33 @@ export const redirectCors = (request: IRequest, env: Env, url: string, status: n
       ...getCorsHeaders(request, env),
     }
   })
+
+export const getDiscordMessageChain = async (selfId: string, botToken: string, instruction: string | null, message: any): Promise<Array<ChatCompletionMessageParam>> => {
+  const array: Array<ChatCompletionMessageParam> = []
+  const messages = await fetch(`https://discord.com/api/v10/channels/${message.channel_id}/messages?before=${message.id}`, {
+    headers: {Authorization: 'Bot ' + botToken},
+  }).then(res => res.json()) as any[]
+  let currentMessage = message
+  array.push({role: 'user', content: getDiscordMessageToChatCompletionMessage(currentMessage)})
+  while (currentMessage?.referenced_message) {
+    currentMessage = messages.find(m => m.id === currentMessage.referenced_message?.id)
+    if (currentMessage.application_id === selfId || currentMessage.author.id === selfId) {
+      array.push({role: 'assistant', content: currentMessage.content})
+    } else {
+      array.push({role: 'user', content: getDiscordMessageToChatCompletionMessage(currentMessage)})
+    }
+  }
+  array.push({role: 'system', content: instruction})
+  return array.reverse()
+}
+
+export const getDiscordMessageToChatCompletionMessage = (message: any): Array<ChatCompletionContentPart> => {
+  const array = new Array<ChatCompletionContentPart>()
+  array.push({type: 'text', text: message.content})
+  if (message.attachments) {
+    for (const attachment of message.attachments) {
+      array.push({type: 'image_url', image_url: attachment.url})
+    }
+  }
+  return array
+}
