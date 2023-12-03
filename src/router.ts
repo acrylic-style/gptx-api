@@ -1,6 +1,6 @@
 import { Router } from 'itty-router';
 import OpenAI, { toFile } from 'openai';
-import { getCorsHeaders } from './util';
+import { getCorsHeaders, SUMMARIZE_PROMPT } from './util';
 
 const router = Router()
 const encoder = new TextEncoder()
@@ -65,6 +65,27 @@ router.post("/api/generate", async (request, env: Env) => {
       ...getCorsHeaders(request, env),
     }
   })
+})
+
+router.post('/summarize', async (request, env: Env) => {
+  const content = await request.text()
+  if (!content || content.length > 1000) return new Response(null, { status: 400 })
+  const client = new OpenAI({ apiKey: env.OPENAI_TOKEN })
+  let summary = await client.chat.completions.create({
+    model: 'gpt-4-1106-preview',
+    messages: [{role: 'system', content: SUMMARIZE_PROMPT}, {role: 'user', content}],
+    max_tokens: 40,
+    temperature: 0,
+    stop: '\n',
+    user: request.headers.get('CF-Connecting-IP') || undefined
+  }).then(res => res.choices[0].message.content)
+  if (!summary) {
+    return new Response(null, { headers: getCorsHeaders(request, env) })
+  }
+  if ((summary.startsWith('"') && summary.endsWith('"')) || (summary.startsWith('「') && summary.endsWith('」'))) {
+    summary = summary.substring(1, summary.length - 1)
+  }
+  return new Response(summary, { headers: getCorsHeaders(request, env) })
 })
 
 router.post('/api/threads/create_and_run', async (request, env) => {
