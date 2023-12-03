@@ -236,7 +236,7 @@ router.post("/api/generate", async (request, env: Env) => {
   })
 })
 
-router.post('/summarize', async (request, env: Env) => {
+router.post('/api/summarize', async (request, env: Env) => {
   const content = await request.text()
   if (!content || content.length > 1000) return new Response(null, { status: 400 })
   const client = new OpenAI({ apiKey: env.OPENAI_TOKEN })
