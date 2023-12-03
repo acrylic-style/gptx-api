@@ -17,7 +17,6 @@
   "dependencies": {
     "@sagi.io/workers-jwt": "^0.0.23",
     "cookie": "^0.6.0",
-    "discord-interactions": "^3.4.0",
     "octokit": "^3.1.1",
     "openai": "^4.17.0",
     "stripe": "^14.4.0"

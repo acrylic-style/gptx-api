@@ -7,6 +7,8 @@ import OpenAI from 'openai';
 import ChatCompletionMessageParam = OpenAI.ChatCompletionMessageParam;
 import { ChatCompletionContentPart } from 'openai/src/resources/chat/completions';
 
+export const SUMMARIZE_PROMPT = 'Summarize the prompt in around 40 characters for English, and 15 characters for Japanese. You only have to output the result in the appropriate language (If English was provided, then output in English, and do NOT output Japanese). Provide only one summary, and do not provide more than one summary.'
+
 const DEFAULT_ALLOWED_ORIGIN = 'http://localhost:3000'
 
 export const getCorsHeaders = (request: IRequest | Request, env: Env) => {
