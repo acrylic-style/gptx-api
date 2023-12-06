@@ -861,6 +861,7 @@ router.get('/api/terms', (request, env: Env) => redirectCors(request, env, env.T
 router.get('/api/privacy-policy', (request, env: Env) => redirectCors(request, env, env.PRIVACY_POLICY_URL, 303))
 router.get('/api/sct', (request, env: Env) => redirectCors(request, env, env.SCT_URL, 303))
 router.get('/api/pricing', (request, env: Env) => redirectCors(request, env, env.PRICING_URL, 303))
+router.get('/api/discord', (request, env: Env) => redirectCors(request, env, env.DISCORD_INVITE_URL, 303))
 
 // 404 for everything else
 router.all('*', () => new Response('Not Found.', { status: 404 }));

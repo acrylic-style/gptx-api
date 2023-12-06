@@ -12,6 +12,7 @@ crons = ["* * * * *", "*/5 * * * *", "*/30 * * * *", "0 0 * * *"]
 [vars]
 #DISCORD_REDIRECT_URL = "http://localhost:8787/api/callback/discord"
 DISCORD_REDIRECT_URL = "https://gptx.acrylicstyle.xyz/api/callback/discord"
+DISCORD_INVITE_URL = "https://discord.gg/DyXQmeJVBb"
 REQUIRE_INVITE = true
 
 # Bind a KV Namespace. Use KV as persistent storage for small key-value pairs.

@@ -31,6 +31,7 @@ export interface Env {
   DISCORD_CLIENT_SECRET: string;
   DISCORD_REDIRECT_URL: string;
   DISCORD_REGISTER_COMMANDS: string | boolean;
+  DISCORD_INVITE_URL: string;
   REQUIRE_INVITE: string | boolean;
   TOS_URL: string;
   PRIVACY_POLICY_URL: string;
