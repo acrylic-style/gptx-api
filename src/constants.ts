@@ -3,7 +3,7 @@ export const models = {
   'gpt-3.5-turbo-16k': 'GPT-3.5 Turbo (16k context)',
   'gpt-4': 'GPT-4 (8k context)',
   'gpt-4-1106-preview': 'GPT-4 Turbo (128k context)',
-  'gpt-4-vision-preview': 'GPT-4V (128k context)',
+  'gpt-4-vision-preview': 'GPT-4 Vision (128k context)',
 }
 
 export const defaultModelLimits: { [model in keyof typeof models]: { minute: number | null, day: number | null } } = {
