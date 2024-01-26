@@ -2,7 +2,7 @@ export const models = {
   'gpt-3.5-turbo': 'GPT-3.5 Turbo (4k context)',
   'gpt-3.5-turbo-16k': 'GPT-3.5 Turbo (16k context)',
   'gpt-4': 'GPT-4 (8k context)',
-  'gpt-4-1106-preview': 'GPT-4 Turbo (128k context)',
+  'gpt-4-0125-preview': 'GPT-4 Turbo (128k context)',
   'gpt-4-vision-preview': 'GPT-4 Vision (128k context)',
 }
 
@@ -19,9 +19,9 @@ export const defaultModelLimits: { [model in keyof typeof models]: { minute: num
     minute: 2500,
     day: null,
   },
-  'gpt-4-1106-preview': {
-    minute: 4000,
-    day: 50000,
+  'gpt-4-0125-preview': {
+    minute: 30000,
+    day: 250000,
   },
   'gpt-4-vision-preview': {
     minute: 2500,
